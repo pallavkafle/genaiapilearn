@@ -1,54 +1,54 @@
 import streamlit as st
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 
-st.title('Geminii Chatbot app')
+st.title("Gemini Chatbot App")
 
-API_KEY = "AQ.Ab8RN6I7YKsGZUApaet-uy3x84h0apw31NOD2vQJGdzJwfPeSg"
-client = genai.Client(api_key=API_KEY)
+# ---------- API KEY from secrets (local or cloud) ----------
+API_KEY = st.secrets["GEMINI_API_KEY"]
 
-MODEL_NAME = "gemini-flash-latest"
-SYSTEM_PROMPT = "You are a helpful assistant. Give answer in a concise and clear manner."
+genai.configure(api_key=API_KEY)
 
-if 'messages' not in st.session_state:
+# ---------- Auto-select a working model ----------
+def get_working_model():
+    for model in genai.list_models():
+        if "generateContent" in model.supported_generation_methods:
+            return model.name
+    raise RuntimeError("No model supports generateContent. Check your API key.")
+
+MODEL_NAME = get_working_model()   # e.g., "models/gemini-1.5-flash-001"
+SYSTEM_PROMPT = "You are a helpful assistant. Give concise and clear answers."
+
+# ---------- Session state ----------
+if "messages" not in st.session_state:
     st.session_state.messages = []
 
-for msg in st.session_state.get('messages', []):
+# ---------- Display history ----------
+for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
+# ---------- User input ----------
 query = st.chat_input("Enter your query here...")
 if query:
+    st.session_state.messages.append({"role": "user", "content": query})
     with st.chat_message("user"):
         st.markdown(query)
-    st.session_state.messages.append({"role": "user", "content": query})
 
-# ✅ FIXED: added system prompt in contents + fixed Part(text=...)
-gemini_history = [
-    types.Content(
-        role="user",
-        parts=[types.Part(text=SYSTEM_PROMPT)]
+    # Build conversation history (correct format for the old library)
+    history = [
+        {"role": "user" if m["role"] == "user" else "model",
+         "parts": [m["content"]]}
+        for m in st.session_state.messages
+    ]
+
+    # Generate response
+    model = genai.GenerativeModel(
+        model_name=MODEL_NAME,
+        system_instruction=SYSTEM_PROMPT
     )
-] + [
-    types.Content(
-        role="user" if m["role"] == "user" else "model",
-        parts=[types.Part(text=m["content"])]
-    )
-    for m in st.session_state.messages
-]
+    response = model.generate_content(contents=history)
+    full_response = response.text
 
-# ✅ FIXED: removed invalid system_prompt from config
-response = client.models.generate_content(
-    model=MODEL_NAME,
-    contents=gemini_history,
-    config=types.GenerateContentConfig(
-        temperature=0.3
-    )
-)
-
-full_response = response.text
-
-with st.chat_message("assistant"):
-    st.markdown(full_response)
-
-st.session_state.messages.append({"role": "assistant", "content": full_response})
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
+    with st.chat_message("assistant"):
+        st.markdown(full_response)
