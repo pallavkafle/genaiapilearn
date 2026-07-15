@@ -13,6 +13,15 @@ except KeyError:
 
 try:
     genai.configure(api_key=API_KEY)
+
+    # ---------- DEBUG (remove after fixing) ----------
+with st.expander("🔍 Debug Secrets"):
+    if "GEMINI_API_KEY" in st.secrets:
+        st.success("✅ Secret 'GEMINI_API_KEY' is present.")
+        st.write(f"Key starts with: {st.secrets['GEMINI_API_KEY'][:10]}...")
+    else:
+        st.error("❌ Secret 'GEMINI_API_KEY' NOT found!")
+        
     list(genai.list_models())
 except Unauthenticated:
     st.error("🚨 Invalid API key! Check your secret.")
