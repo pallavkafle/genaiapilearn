@@ -3,8 +3,12 @@ import google.generativeai as genai
 
 st.title("Gemini Chatbot App")
 
-# ---------- API KEY from secrets (local or cloud) ----------
-API_KEY = st.secrets["GEMINI_API_KEY"]
+# ---------- Get API key from secrets ----------
+try:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+except KeyError:
+    st.error("🚨 API key not found! Please set the 'GEMINI_API_KEY' secret in Streamlit Cloud (Settings → Secrets).")
+    st.stop()
 
 genai.configure(api_key=API_KEY)
 
@@ -15,7 +19,7 @@ def get_working_model():
             return model.name
     raise RuntimeError("No model supports generateContent. Check your API key.")
 
-MODEL_NAME = get_working_model()   # e.g., "models/gemini-1.5-flash-001"
+MODEL_NAME = get_working_model()
 SYSTEM_PROMPT = "You are a helpful assistant. Give concise and clear answers."
 
 # ---------- Session state ----------
@@ -34,14 +38,12 @@ if query:
     with st.chat_message("user"):
         st.markdown(query)
 
-    # Build conversation history (correct format for the old library)
     history = [
         {"role": "user" if m["role"] == "user" else "model",
          "parts": [m["content"]]}
         for m in st.session_state.messages
     ]
 
-    # Generate response
     model = genai.GenerativeModel(
         model_name=MODEL_NAME,
         system_instruction=SYSTEM_PROMPT
