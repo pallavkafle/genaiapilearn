@@ -13,7 +13,7 @@ except KeyError:
 
 try:
     genai.configure(api_key=API_KEY)
-    list(genai.list_models())  # test authentication
+    list(genai.list_models())
 except Unauthenticated:
     st.error("🚨 Invalid API key! Check your secret.")
     st.stop()
@@ -21,28 +21,27 @@ except Exception as e:
     st.error(f"⚠️ Connection error: {e}")
     st.stop()
 
-# ---------- Try a list of models until one works ----------
+# ---------- Updated model list (based on your region's availability) ----------
 MODEL_CANDIDATES = [
-    "gemini-1.5-pro",
-    "gemini-1.0-pro",
-    "gemini-pro",
-    "gemini-2.0-flash-exp",  # might be available in some regions
+    "gemini-2.0-flash",
+    "gemini-2.5-flash",
+    "gemini-flash-latest",
+    "gemini-pro-latest",
+    "gemini-2.5-pro",
 ]
 SYSTEM_PROMPT = "You are a helpful assistant. Give concise and clear answers."
 
 def get_working_model():
     for name in MODEL_CANDIDATES:
         try:
-            # Quick test: can we create a model and make a tiny request?
             model = genai.GenerativeModel(model_name=name)
-            # Minimal test (empty prompt) to see if it's valid
-            model.generate_content("test")  # might raise NotFound
+            model.generate_content("test")  # quick check
             return name
         except NotFound:
             continue
         except Exception:
             continue
-    # If we get here, none worked – list all available models
+    # If none work, show the full list
     available = []
     for m in genai.list_models():
         if "generateContent" in m.supported_generation_methods:
@@ -55,7 +54,7 @@ except RuntimeError as e:
     st.error(f"🚨 {e}")
     st.stop()
 
-# ---------- Session state ----------
+# ---------- Session state and conversation ----------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -87,7 +86,7 @@ if query:
         with st.chat_message("assistant"):
             st.markdown(full_response)
     except NotFound:
-        st.error(f"🚨 Model '{MODEL_NAME}' stopped working. Run the debug expander to see available models.")
+        st.error(f"🚨 Model '{MODEL_NAME}' stopped working. Run debug to see available models.")
         st.stop()
     except Exception as e:
         st.error(f"⚠️ Generation error: {e}")
