@@ -13,16 +13,7 @@ except KeyError:
 
 try:
     genai.configure(api_key=API_KEY)
-
-    # ---------- DEBUG (remove after fixing) ----------
-with st.expander("🔍 Debug Secrets"):
-    if "GEMINI_API_KEY" in st.secrets:
-        st.success("✅ Secret 'GEMINI_API_KEY' is present.")
-        st.write(f"Key starts with: {st.secrets['GEMINI_API_KEY'][:10]}...")
-    else:
-        st.error("❌ Secret 'GEMINI_API_KEY' NOT found!")
-        
-    list(genai.list_models())
+    list(genai.list_models())  # test authentication
 except Unauthenticated:
     st.error("🚨 Invalid API key! Check your secret.")
     st.stop()
@@ -30,7 +21,15 @@ except Exception as e:
     st.error(f"⚠️ Connection error: {e}")
     st.stop()
 
-# ---------- Updated model list (based on your region's availability) ----------
+# ---------- DEBUG: Check secret on deployed app ----------
+with st.expander("🔍 Debug Secrets"):
+    if "GEMINI_API_KEY" in st.secrets:
+        st.success("✅ Secret 'GEMINI_API_KEY' is present.")
+        st.write(f"Key starts with: {st.secrets['GEMINI_API_KEY'][:10]}...")
+    else:
+        st.error("❌ Secret 'GEMINI_API_KEY' NOT found!")
+
+# ---------- Model candidates (from your region) ----------
 MODEL_CANDIDATES = [
     "gemini-2.0-flash",
     "gemini-2.5-flash",
@@ -44,18 +43,14 @@ def get_working_model():
     for name in MODEL_CANDIDATES:
         try:
             model = genai.GenerativeModel(model_name=name)
-            model.generate_content("test")  # quick check
+            model.generate_content("test")
             return name
         except NotFound:
             continue
         except Exception:
             continue
-    # If none work, show the full list
-    available = []
-    for m in genai.list_models():
-        if "generateContent" in m.supported_generation_methods:
-            available.append(m.name)
-    raise RuntimeError(f"No working model. Available models: {available}")
+    available = [m.name for m in genai.list_models() if "generateContent" in m.supported_generation_methods]
+    raise RuntimeError(f"No working model. Available: {available}")
 
 try:
     MODEL_NAME = get_working_model()
@@ -63,7 +58,7 @@ except RuntimeError as e:
     st.error(f"🚨 {e}")
     st.stop()
 
-# ---------- Session state and conversation ----------
+# ---------- Session state ----------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -90,12 +85,11 @@ if query:
         )
         response = model.generate_content(contents=history)
         full_response = response.text
-
         st.session_state.messages.append({"role": "assistant", "content": full_response})
         with st.chat_message("assistant"):
             st.markdown(full_response)
     except NotFound:
-        st.error(f"🚨 Model '{MODEL_NAME}' stopped working. Run debug to see available models.")
+        st.error(f"🚨 Model '{MODEL_NAME}' stopped working. Check available models.")
         st.stop()
     except Exception as e:
         st.error(f"⚠️ Generation error: {e}")
